@@ -5,6 +5,7 @@ use near_sdk::{env, near_bindgen, AccountId, Promise, Balance};
 use near_sdk::serde::{Serialize};
 use near_lib::types::{WrappedDuration, WrappedTimestamp};
 pub use crate::types::*;
+use near_sdk::json_types::U64;
 
 /// There is no deposit balance attached.
 const NO_DEPOSIT: Balance = 0;
@@ -35,6 +36,7 @@ pub struct LockupArgs {
     release_duration: Option<WrappedDuration>,
     staking_pool_whitelist_account_id: AccountId,
     foundation_account_id: AccountId,
+    owner_account_id: AccountId
 }
 
 
@@ -97,17 +99,18 @@ impl LockupFactory {
         );
 
 
-        Promise::new(owner_account_id)
+        Promise::new(lockup_account_id)
             .create_account()
             .deploy_contract(CODE.to_vec())
             .transfer(env::attached_deposit())
             .function_call(
                 b"new".to_vec(),
                 near_sdk::serde_json::to_vec(&LockupArgs {
+                    owner_account_id,
                     lockup_duration,
                     lockup_timestamp,
                     transfers_information: TransfersInformation::TransfersEnabled {
-                        transfers_timestamp: lockup_timestamp.unwrap(),
+                        transfers_timestamp: U64(0),
                     },
                     vesting_schedule,
                     release_duration,
