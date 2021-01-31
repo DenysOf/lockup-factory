@@ -5,10 +5,10 @@ use near_sdk::{env, near_bindgen, AccountId, Promise, Balance};
 use near_sdk::serde::{Serialize};
 use near_lib::types::{WrappedDuration, WrappedTimestamp};
 pub use crate::types::*;
-use near_sdk::json_types::U64;
 
 /// There is no deposit balance attached.
 const NO_DEPOSIT: Balance = 0;
+const TRANSFER_STARTED: u64 = 1603274400000000000;
 
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
@@ -22,13 +22,16 @@ const MIN_ATTACHED_BALANCE: Balance = 30_000_000_000_000_000_000_000_000;
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct LockupFactory {
-    staking_pool_whitelist_account_id: AccountId,
+    master_account_id: AccountId,
+    lockup_master_account_id: AccountId,
+    whitelist_account_id: AccountId,
     foundation_account_id: AccountId,
 }
 
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LockupArgs {
+    owner_account_id: AccountId,
     lockup_duration: WrappedDuration,
     lockup_timestamp: Option<WrappedTimestamp>,
     transfers_information: TransfersInformation,
@@ -36,7 +39,6 @@ pub struct LockupArgs {
     release_duration: Option<WrappedDuration>,
     staking_pool_whitelist_account_id: AccountId,
     foundation_account_id: AccountId,
-    owner_account_id: AccountId
 }
 
 
@@ -49,21 +51,35 @@ impl Default for LockupFactory {
 #[near_bindgen]
 impl LockupFactory {
     #[init]
-    pub fn new(staking_pool_whitelist_account_id: AccountId, foundation_account_id: AccountId) -> Self {
+    pub fn new(master_account_id: AccountId,
+               lockup_master_account_id: AccountId,
+               whitelist_account_id: AccountId,
+               foundation_account_id: AccountId) ->
+               Self {
         assert!(!env::state_exists(), "The contract is already initialized");
 
         assert!(
-            env::is_valid_account_id(staking_pool_whitelist_account_id.as_bytes()),
-            "The staking pool whitelist account ID is invalid"
+            env::is_valid_account_id(master_account_id.as_bytes()),
+            "The master account ID is invalid"
+        );
+
+        assert!(
+            env::is_valid_account_id(lockup_master_account_id.as_bytes()),
+            "The lockup account ID is invalid"
+        );
+        assert!(
+            env::is_valid_account_id(whitelist_account_id.as_bytes()),
+            "The whitelist account ID is invalid"
         );
 
         assert!(
             env::is_valid_account_id(foundation_account_id.as_bytes()),
             "The foundation account is invalid"
         );
-
         Self {
-            staking_pool_whitelist_account_id,
+            master_account_id,
+            lockup_master_account_id,
+            whitelist_account_id,
             foundation_account_id,
         }
     }
@@ -73,10 +89,19 @@ impl LockupFactory {
         self.foundation_account_id.to_string()
     }
 
+    /// Returns the master account id.
+    pub fn get_master_account_id(&self) -> String {
+        self.master_account_id.to_string()
+    }
+
+    /// Returns the lockup account id.
+    pub fn get_lockup_master_account_id(&self) -> String {
+        self.lockup_master_account_id.to_string()
+    }
+
 
     #[payable]
     pub fn create(&mut self,
-                  lockup_account_id: AccountId,
                   owner_account_id: AccountId,
                   lockup_duration: WrappedDuration,
                   lockup_timestamp: Option<WrappedTimestamp>,
@@ -88,16 +113,15 @@ impl LockupFactory {
             "Not enough attached deposit"
         );
 
-        assert!(
-            lockup_account_id.find('.').is_none(),
-            "The lockup account can't contain `.`"
-        );
+        let lockup_account_id = "ddd.test".to_string();
 
         assert!(
             env::is_valid_account_id(owner_account_id.as_bytes()),
             "The owner account ID is invalid"
         );
 
+
+        let transfers_enabled: WrappedTimestamp = TRANSFER_STARTED.into();
 
         Promise::new(lockup_account_id)
             .create_account()
@@ -110,11 +134,11 @@ impl LockupFactory {
                     lockup_duration,
                     lockup_timestamp,
                     transfers_information: TransfersInformation::TransfersEnabled {
-                        transfers_timestamp: U64(0),
+                        transfers_timestamp: transfers_enabled,
                     },
                     vesting_schedule,
                     release_duration,
-                    staking_pool_whitelist_account_id: self.staking_pool_whitelist_account_id.clone(),
+                    staking_pool_whitelist_account_id: self.whitelist_account_id.clone(),
                     foundation_account_id: self.foundation_account_id.clone(),
                 }).unwrap(),
                 NO_DEPOSIT,
@@ -133,5 +157,6 @@ mod tests {
     fn test_basics() {
         testing_env!(VMContextBuilder::new().current_account_id(accounts(0)).finish());
         //let mut factory = LockupFactory::new("whitelist".to_string(), "foundation".to_string());
+        let lockup_account_id = "lock.near".to_string();
     }
 }
