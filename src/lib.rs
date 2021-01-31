@@ -152,11 +152,28 @@ impl LockupFactory {
 mod tests {
     use near_lib::context::{accounts, VMContextBuilder};
     use near_sdk::{testing_env, MockedBlockchain};
+    use sha2::{Sha256, Digest};
 
     #[test]
     fn test_basics() {
         testing_env!(VMContextBuilder::new().current_account_id(accounts(0)).finish());
         //let mut factory = LockupFactory::new("whitelist".to_string(), "foundation".to_string());
         let lockup_account_id = "lock.near".to_string();
+
+        fn crop_letters(s: &mut String, pos: usize) {
+            match s.char_indices().nth(pos) {
+                Some((pos, _)) => {
+                    s.drain(..pos);
+                }
+                None => {
+                    s.clear();
+                }
+            }
+        }
+
+        let lockup_prefix = Sha256::new().chain(lockup_account_id.as_bytes()).finalize();
+        let mut output = String::from(first_bytes);
+        crop_letters(&mut output, 39);
+        println!("Result: {}", output);
     }
 }
