@@ -5,6 +5,7 @@ use near_sdk::{env, near_bindgen, AccountId, Promise, Balance};
 use near_sdk::serde::{Serialize};
 use near_lib::types::{WrappedDuration, WrappedTimestamp};
 pub use crate::types::*;
+use sha2::{Sha256, Digest};
 
 /// There is no deposit balance attached.
 const NO_DEPOSIT: Balance = 0;
@@ -113,7 +114,11 @@ impl LockupFactory {
             "Not enough attached deposit"
         );
 
-        let lockup_account_id = "ddd.test".to_string();
+        let byte_slice = Sha256::new().chain(owner_account_id.to_string()).finalize();
+        let string: String = format!("{:x}", byte_slice);
+        let lockup_suffix = ".".to_string() + &self.lockup_master_account_id.to_string();
+        let sliced_string = &string[..40];
+        let lockup_account_id:AccountId = sliced_string.to_owned() + &lockup_suffix;
 
         assert!(
             env::is_valid_account_id(owner_account_id.as_bytes()),
@@ -157,23 +162,12 @@ mod tests {
     #[test]
     fn test_basics() {
         testing_env!(VMContextBuilder::new().current_account_id(accounts(0)).finish());
-        //let mut factory = LockupFactory::new("whitelist".to_string(), "foundation".to_string());
         let lockup_account_id = "lock.near".to_string();
-
-        fn crop_letters(s: &mut String, pos: usize) {
-            match s.char_indices().nth(pos) {
-                Some((pos, _)) => {
-                    s.drain(..pos);
-                }
-                None => {
-                    s.clear();
-                }
-            }
-        }
-
-        let lockup_prefix = Sha256::new().chain(lockup_account_id.as_bytes()).finalize();
-        let mut output = String::from(first_bytes);
-        crop_letters(&mut output, 39);
-        println!("Result: {}", output);
+        let byte_slice = Sha256::new().chain(lockup_account_id).finalize();
+        let string: String = format!("{:x}", byte_slice);
+        let lockup_suffix = ".lockup.near".to_string();
+        let x = &string[..40];
+        let r = x.to_owned() + &lockup_suffix;
+        println!("Result: {:?}", r);
     }
 }
