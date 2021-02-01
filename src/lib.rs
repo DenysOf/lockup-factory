@@ -39,7 +39,7 @@ pub struct LockupArgs {
     vesting_schedule: Option<VestingScheduleOrHash>,
     release_duration: Option<WrappedDuration>,
     staking_pool_whitelist_account_id: AccountId,
-    foundation_account_id: AccountId,
+    foundation_account_id: Option<AccountId>,
 }
 
 
@@ -118,16 +118,20 @@ impl LockupFactory {
         let string: String = format!("{:x}", byte_slice);
         let lockup_suffix = ".".to_string() + &self.lockup_master_account_id.to_string();
         let sliced_string = &string[..40];
-        let lockup_account_id:AccountId = sliced_string.to_owned() + &lockup_suffix;
+        let lockup_account_id: AccountId = sliced_string.to_owned() + &lockup_suffix;
 
         assert!(
             env::is_valid_account_id(owner_account_id.as_bytes()),
             "The owner account ID is invalid"
         );
 
+        let mut foundation_account:Option<AccountId> = None;
+        if vesting_schedule.is_some() {
+          foundation_account = Option::from(self.foundation_account_id.clone());
+        };
+
 
         let transfers_enabled: WrappedTimestamp = TRANSFER_STARTED.into();
-
         Promise::new(lockup_account_id)
             .create_account()
             .deploy_contract(CODE.to_vec())
@@ -144,7 +148,7 @@ impl LockupFactory {
                     vesting_schedule,
                     release_duration,
                     staking_pool_whitelist_account_id: self.whitelist_account_id.clone(),
-                    foundation_account_id: self.foundation_account_id.clone(),
+                    foundation_account_id: foundation_account,
                 }).unwrap(),
                 NO_DEPOSIT,
                 env::prepaid_gas() - CREATE_CALL_GAS,
@@ -162,10 +166,10 @@ mod tests {
     #[test]
     fn test_basics() {
         testing_env!(VMContextBuilder::new().current_account_id(accounts(0)).finish());
-        let lockup_account_id = "lock.near".to_string();
+        let lockup_account_id = "lt2.testnet".to_string();
         let byte_slice = Sha256::new().chain(lockup_account_id).finalize();
         let string: String = format!("{:x}", byte_slice);
-        let lockup_suffix = ".lockup.near".to_string();
+        let lockup_suffix = ".lockup.genesis".to_string();
         let x = &string[..40];
         let r = x.to_owned() + &lockup_suffix;
         println!("Result: {:?}", r);
