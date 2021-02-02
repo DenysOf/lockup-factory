@@ -166,10 +166,10 @@ mod tests {
     #[test]
     fn test_basics() {
         testing_env!(VMContextBuilder::new().current_account_id(accounts(0)).finish());
-        let lockup_account_id = "lt2.testnet".to_string();
+        let lockup_account_id = "boby.nearnet".to_string();
         let byte_slice = Sha256::new().chain(lockup_account_id).finalize();
         let string: String = format!("{:x}", byte_slice);
-        let lockup_suffix = ".lockup.genesis".to_string();
+        let lockup_suffix = ".lockup.nearnet".to_string();
         let x = &string[..40];
         let r = x.to_owned() + &lockup_suffix;
         println!("Result: {:?}", r);
