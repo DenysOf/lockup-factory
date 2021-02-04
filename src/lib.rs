@@ -1,7 +1,11 @@
 mod types;
+mod utils;
+
+use crate::utils::*;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, AccountId, Promise, Balance};
+use near_sdk::{env, ext_contract, near_bindgen, AccountId, Promise, PromiseOrValue, Balance};
+use near_sdk::json_types::{U128};
 use near_sdk::serde::{Serialize};
 use near_lib::types::{WrappedDuration, WrappedTimestamp};
 pub use crate::types::*;
@@ -17,8 +21,20 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 const CODE: &[u8] = include_bytes!("../../lockup/res/lockup_contract.wasm");
 
 /// This gas spent on the call & account creation, the rest goes to the `new` call.
-const CREATE_CALL_GAS: u64 = 40_000_000_000_000;
-const MIN_ATTACHED_BALANCE: Balance = 30_000_000_000_000_000_000_000_000;
+const CREATE_CALL_GAS: u64 = 45_000_000_000_000;
+const CALLBACK_CALL_GAS: u64 = 90_000_000_000_000;
+const MIN_ATTACHED_BALANCE: Balance = 35_000_000_000_000_000_000_000_000;
+
+/// External interface for the callbacks to self.
+#[ext_contract(ext_self)]
+pub trait ExtSelf {
+    fn on_lockup_create(
+        &mut self,
+        lockup_account_id: AccountId,
+        attached_deposit: U128,
+        predecessor_account_id: AccountId,
+    ) -> Promise;
+}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -125,14 +141,14 @@ impl LockupFactory {
             "The owner account ID is invalid"
         );
 
-        let mut foundation_account:Option<AccountId> = None;
+        let mut foundation_account: Option<AccountId> = None;
         if vesting_schedule.is_some() {
-          foundation_account = Option::from(self.foundation_account_id.clone());
+            foundation_account = Option::from(self.foundation_account_id.clone());
         };
 
 
         let transfers_enabled: WrappedTimestamp = TRANSFER_STARTED.into();
-        Promise::new(lockup_account_id)
+        Promise::new(lockup_account_id.clone())
             .create_account()
             .deploy_contract(CODE.to_vec())
             .transfer(env::attached_deposit())
@@ -153,6 +169,50 @@ impl LockupFactory {
                 NO_DEPOSIT,
                 env::prepaid_gas() - CREATE_CALL_GAS,
             )
+            .then(ext_self::on_lockup_create(
+                lockup_account_id,
+                env::attached_deposit().into(),
+                env::predecessor_account_id(),
+                &env::current_account_id(),
+                NO_DEPOSIT,
+                CALLBACK_CALL_GAS,
+            ))
+    }
+
+    /// Callback after a lockup was created.
+    /// Returns the promise if the lockup creation succeeded.
+    /// Otherwise refunds the attached deposit and returns `false`.
+    pub fn on_lockup_create(
+        &mut self,
+        lockup_account_id: AccountId,
+        attached_deposit: U128,
+        predecessor_account_id: AccountId,
+    ) -> PromiseOrValue<bool> {
+        assert_self();
+
+        let lockup_account_created = is_promise_success();
+
+        if lockup_account_created {
+            env::log(
+                format!(
+                    "The lockup contract @{} was successfully created.",
+                    lockup_account_id
+                )
+                .as_bytes(),
+            );
+            return PromiseOrValue::Value(true).into();
+        } else {
+            env::log(
+                format!(
+                    "The lockup @{} creation has failed. Returning attached deposit of {} to @{}",
+                    lockup_account_id,
+                    attached_deposit.0,
+                    predecessor_account_id
+                ).as_bytes()
+            );
+            Promise::new(predecessor_account_id).transfer(attached_deposit.0);
+            PromiseOrValue::Value(false)
+        }
     }
 }
 
