@@ -10,7 +10,6 @@ use near_sdk::serde::{Serialize};
 use near_lib::types::{WrappedDuration, WrappedTimestamp};
 pub use crate::types::*;
 use sha2::{Sha256, Digest};
-use crate::gas::{LOCKUP_NEW, CALLBACK};
 
 /// There is no deposit balance attached.
 const NO_DEPOSIT: Balance = 0;
@@ -184,7 +183,7 @@ impl LockupFactory {
                     foundation_account_id: foundation_account,
                 }).unwrap(),
                 NO_DEPOSIT,
-                LOCKUP_NEW,
+                gas::LOCKUP_NEW,
             )
             .then(ext_self::on_lockup_create(
                 lockup_account_id,
@@ -192,7 +191,7 @@ impl LockupFactory {
                 env::predecessor_account_id(),
                 &env::current_account_id(),
                 NO_DEPOSIT,
-                CALLBACK,
+                gas::CALLBACK,
             ))
     }
 
