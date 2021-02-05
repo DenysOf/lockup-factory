@@ -10,6 +10,7 @@ use near_sdk::serde::{Serialize};
 use near_lib::types::{WrappedDuration, WrappedTimestamp};
 pub use crate::types::*;
 use sha2::{Sha256, Digest};
+use crate::gas::{LOCKUP_NEW, CALLBACK};
 
 /// There is no deposit balance attached.
 const NO_DEPOSIT: Balance = 0;
@@ -20,9 +21,21 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 
 const CODE: &[u8] = include_bytes!("../../lockup/res/lockup_contract.wasm");
 
-/// This gas spent on the call & account creation, the rest goes to the `new` call.
-const CREATE_CALL_GAS: u64 = 45_000_000_000_000;
-const CALLBACK_CALL_GAS: u64 = 90_000_000_000_000;
+
+pub mod gas {
+    use near_sdk::Gas;
+
+    /// The base amount of gas for a regular execution.
+    const BASE: Gas = 35_000_000_000_000;
+
+    /// The amount of Gas the contract will attach to the promise to create the lockup.
+    pub const LOCKUP_NEW: Gas = BASE * 2;
+
+    /// The amount of Gas the contract will attach to the callback to itself.
+    /// The base for the execution and the base for cash rollback.
+    pub const CALLBACK: Gas = BASE * 2;
+}
+
 const MIN_ATTACHED_BALANCE: Balance = 35_000_000_000_000_000_000_000_000;
 
 /// External interface for the callbacks to self.
@@ -116,6 +129,10 @@ impl LockupFactory {
         self.lockup_master_account_id.to_string()
     }
 
+    pub fn get_min_attached_balance(&self) -> U128 {
+        MIN_ATTACHED_BALANCE.into()
+    }
+
 
     #[payable]
     pub fn create(&mut self,
@@ -167,7 +184,7 @@ impl LockupFactory {
                     foundation_account_id: foundation_account,
                 }).unwrap(),
                 NO_DEPOSIT,
-                env::prepaid_gas() - CREATE_CALL_GAS,
+                LOCKUP_NEW,
             )
             .then(ext_self::on_lockup_create(
                 lockup_account_id,
@@ -175,7 +192,7 @@ impl LockupFactory {
                 env::predecessor_account_id(),
                 &env::current_account_id(),
                 NO_DEPOSIT,
-                CALLBACK_CALL_GAS,
+                CALLBACK,
             ))
     }
 
