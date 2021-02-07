@@ -25,14 +25,14 @@ pub mod gas {
     use near_sdk::Gas;
 
     /// The base amount of gas for a regular execution.
-    const BASE: Gas = 35_000_000_000_000;
+    const BASE: Gas = 25_000_000_000_000;
 
     /// The amount of Gas the contract will attach to the promise to create the lockup.
-    pub const LOCKUP_NEW: Gas = BASE * 2;
+    pub const LOCKUP_NEW: Gas = BASE;
 
     /// The amount of Gas the contract will attach to the callback to itself.
     /// The base for the execution and the base for cash rollback.
-    pub const CALLBACK: Gas = BASE * 2;
+    pub const CALLBACK: Gas = BASE;
 }
 
 const MIN_ATTACHED_BALANCE: Balance = 35_000_000_000_000_000_000_000_000;
@@ -211,7 +211,7 @@ impl LockupFactory {
         if lockup_account_created {
             env::log(
                 format!(
-                    "The lockup contract @{} was successfully created.",
+                    "The lockup contract {} was successfully created.",
                     lockup_account_id
                 )
                 .as_bytes(),
@@ -220,7 +220,7 @@ impl LockupFactory {
         } else {
             env::log(
                 format!(
-                    "The lockup @{} creation has failed. Returning attached deposit of {} to @{}",
+                    "The lockup {} creation has failed. Returning attached deposit of {} to {}",
                     lockup_account_id,
                     attached_deposit.0,
                     predecessor_account_id
