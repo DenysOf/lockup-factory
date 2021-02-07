@@ -13,7 +13,7 @@ use sha2::{Sha256, Digest};
 
 /// There is no deposit balance attached.
 const NO_DEPOSIT: Balance = 0;
-const TRANSFER_STARTED: u64 = 1603274400000000000;
+const TRANSFERS_STARTED: u64 = 1603274400000000000;
 
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
@@ -163,7 +163,7 @@ impl LockupFactory {
         };
 
 
-        let transfers_enabled: WrappedTimestamp = TRANSFER_STARTED.into();
+        let transfers_enabled: WrappedTimestamp = TRANSFERS_STARTED.into();
         Promise::new(lockup_account_id.clone())
             .create_account()
             .deploy_contract(CODE.to_vec())
