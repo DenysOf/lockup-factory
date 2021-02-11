@@ -147,16 +147,16 @@ impl LockupFactory {
             "Not enough attached deposit"
         );
 
+        assert!(
+            env::is_valid_account_id(owner_account_id.as_bytes()),
+            "The owner account ID is invalid"
+        );
+
         let byte_slice = Sha256::new().chain(owner_account_id.to_string()).finalize();
         let string: String = format!("{:x}", byte_slice);
         let lockup_suffix = ".".to_string() + &self.lockup_master_account_id.to_string();
         let sliced_string = &string[..40];
         let lockup_account_id: AccountId = sliced_string.to_owned() + &lockup_suffix;
-
-        assert!(
-            env::is_valid_account_id(owner_account_id.as_bytes()),
-            "The owner account ID is invalid"
-        );
 
         let mut foundation_account: Option<AccountId> = None;
         if vesting_schedule.is_some() {
